@@ -4,7 +4,6 @@
 #include <thread>
 #include <vector>
 
-
 #include "Modules/Module.hpp"
 
 #include "Cheats.hpp"
@@ -41,7 +40,11 @@ protected:
     bool paramsChanged = false;
 public:
     SMSM();
-
+    void AP_RefillQueue();
+    void AP_ForceResync();
+    void InitializeArchipelago(const char* ip, const char* slot, const char* pass);
+    void ProcessArchipelagoItems();
+    void SendLocationCheck(int64_t locationID);
     virtual bool Load(CreateInterfaceFn interfaceFactory, CreateInterfaceFn gameServerFactory);
     virtual void Unload();
     virtual void Pause();
@@ -87,12 +90,20 @@ public:
     void DialogueMute_Update();
     void DialogueMute_SetForceState(bool state);
     void RefreshEntity(HSCRIPT hScript);
-    
+
     void PrecacheModel(const char* pName, bool bPreload);
+
+    // ============================================
+    // ARCHIPELAGO EXPORTS
+    // ============================================
+    void AP_Connect(const char* ip, const char* slot, const char* pass);
+    void AP_SendLocation(int locationID);
+    const char* AP_GetNewItems();
+    const char* AP_GetNewMessages();
 
 private:
     void StartMainThread();
-    
+    bool initialized = false;
 };
 
 

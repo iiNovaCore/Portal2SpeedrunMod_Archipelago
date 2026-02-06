@@ -1,21 +1,34 @@
 @ECHO OFF
+SETLOCAL
 
-echo !!! YOU FORGOT TO EDIT COPY.bat !!!
+REM Always run from repo root
+cd /d "%~dp0"
 
-REM vpk.exe is included in Portal 2 Authoring Tools, or you can use your own, IDC
+echo Copying Portal 2 Speedrun Mod...
+
 SET "dest=%ProgramFiles(x86)%\Steam\steamapps\sourcemods\Portal 2 Speedrun Mod"
 SET "vpk=%ProgramFiles(x86)%\Steam\steamapps\common\Portal 2\bin\vpk.exe"
 
-REM MKDIR "%dest%"
-REM xcopy /E /V /Y /I "cfg"          "%dest%\cfg"
-REM xcopy /E /V /Y /I "maps"         "%dest%\maps"
-REM xcopy /E /V /Y /I "resource"     "%dest%\resource"
-REM xcopy /E /V /Y /I "scripts"      "%dest%\scripts"
-REM xcopy /E /V /Y /I "media"        "%dest%\media"
-REM copy /Y           "gameinfo.txt" "%dest%\gameinfo.txt"
+IF NOT EXIST "%vpk%" (
+    echo ERROR: vpk.exe not found!
+    pause
+    exit /b 0
+)
 
-REM "%vpk%" pak01_dir
-REM copy /Y "pak01_dir.vpk" "%dest%\pak01_dir.vpk"
-REM DEL pak01_dir.vpk
+MKDIR "%dest%"
+xcopy /E /V /Y /I "cfg"          "%dest%\cfg"
+xcopy /E /V /Y /I "maps"         "%dest%\maps"
+xcopy /E /V /Y /I "resource"     "%dest%\resource"
+xcopy /E /V /Y /I "scripts"      "%dest%\scripts"
+xcopy /E /V /Y /I "media"        "%dest%\media"
+copy /Y           "gameinfo.txt" "%dest%\gameinfo.txt"
 
-REM copy /Y "smsm\bin\smsm.dll" "%dest%\smsm.dll"
+"%vpk%" pak01_dir
+copy /Y "pak01_dir.vpk" "%dest%\pak01_dir.vpk"
+DEL pak01_dir.vpk
+
+copy /Y "smsm\bin\smsm.dll" "%dest%\smsm.dll"
+
+echo Done!
+pause
+exit /b 0

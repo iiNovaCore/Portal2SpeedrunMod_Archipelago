@@ -14,8 +14,8 @@
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{BA13479B-E6FE-4327-B16F-196BF3BE80FF}</ProjectGuid>
     <RootNamespace>chaos</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
-    <PlatformToolset>v142</PlatformToolset>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <PlatformToolset>v145</PlatformToolset>
     <ProjectName>SMSM</ProjectName>
     <TargetName>smsm</TargetName>
     <OutDir>$(SolutionDir)bin\</OutDir>
@@ -70,7 +70,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <SupportJustMyCode>false</SupportJustMyCode>
       <IntrinsicFunctions>false</IntrinsicFunctions>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_ITERATOR_DEBUG_LEVEL=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
@@ -80,6 +80,7 @@
       <MapExports>true</MapExports>
       <ImageHasSafeExceptionHandlers>true</ImageHasSafeExceptionHandlers>
       <AssemblyDebug>true</AssemblyDebug>
+      <AdditionalDependencies>Winhttp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -91,6 +92,7 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ArchipelagoManager.cpp" />
     <ClCompile Include="CelesteMoveset.cpp" />
     <ClCompile Include="Hud\Hud.cpp" />
     <ClCompile Include="Modules\Server.cpp" />
@@ -116,6 +118,7 @@
     <ClCompile Include="Variable.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ArchipelagoManager.h" />
     <ClInclude Include="CelesteMoveset.hpp" />
     <ClInclude Include="Hud\Hud.hpp" />
     <ClInclude Include="Modules\Server.hpp" />

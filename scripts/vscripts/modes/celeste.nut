@@ -3,6 +3,282 @@
 //Advanced movement and stuff
 //*****************************************************
 
+ARCHIPELAGO_CONNECTED <- false;
+ARCHIPELAGO_RECEIVED_ITEMS <- {};
+ARCHIPELAGO_LOCATION_SENT <- {};
+ARCHIPELAGO_INITIALIZED <- false;
+
+// Offset for AP Location IDs (e.g. Berry 1 = 200001)
+const AP_LOCATION_OFFSET = 200000;
+// Offset for AP Item IDs (e.g. Unlock Item 1 = 201001)
+const AP_ITEM_OFFSET = 201000;
+const AP_UNLOCK_SAVE_OFFSET = 300;
+// STRICT ORDERING for Archipelago IDs (Must match Python UNLOCK_NAMES exactly)
+// Index 0 = Container Ride, Index 1 = Portal Carousel, etc.
+AP_UNLOCK_ORDER <- [
+    "sp_a1_intro1",          // 0: Unlock: Container Ride
+    "sp_a1_intro2",          // 1: Unlock: Portal Carousel
+    "sp_a1_intro3",          // 2: Unlock: Portal Gun
+    "sp_a1_intro4",          // 3: Unlock: Smooth Jazz
+    "sp_a1_intro5",          // 4: Unlock: Cube Momentum
+    "sp_a1_intro6",          // 5: Unlock: Future Starter
+    "sp_a1_intro7",          // 6: Unlock: Secret Panel
+    "sp_a1_wakeup",          // 7: Unlock: Wakeup
+    "sp_a2_intro",           // 8: Unlock: Incinerator
+    "sp_a2_laser_intro",     // 9: Unlock: Laser Intro
+    "sp_a2_laser_stairs",    // 10: Unlock: Laser Stairs
+    "sp_a2_dual_lasers",     // 11: Unlock: Dual Lasers
+    "sp_a2_laser_over_goo",  // 12: Unlock: Laser Over Goo
+    "sp_a2_catapult_intro",  // 13: Unlock: Catapult Intro
+    "sp_a2_trust_fling",     // 14: Unlock: Trust Fling
+    "sp_a2_pit_flings",      // 15: Unlock: Pit Flings
+    "sp_a2_fizzler_intro",   // 16: Unlock: Fizzler Intro
+    "sp_a2_sphere_peek",     // 17: Unlock: Ceiling Catapult
+    "sp_a2_ricochet",        // 18: Unlock: Ricochet
+    "sp_a2_bridge_intro",    // 19: Unlock: Bridge Intro
+    "sp_a2_bridge_the_gap",  // 20: Unlock: Bridge The Gap
+    "sp_a2_turret_intro",    // 21: Unlock: Turret Intro
+    "sp_a2_laser_relays",    // 22: Unlock: Laser Relays
+    "sp_a2_turret_blocker",  // 23: Unlock: Turret Blocker
+    "sp_a2_laser_vs_turret", // 24: Unlock: Laser Vs Turret
+    "sp_a2_pull_the_rug",    // 25: Unlock: Pull The Rug
+    "sp_a2_column_blocker",  // 26: Unlock: Column Blocker
+    "sp_a2_laser_chaining",  // 27: Unlock: Laser Chaining
+    "sp_a2_triple_laser",    // 28: Unlock: Triple Laser
+    "sp_a2_bts1",            // 29: Unlock: Jailbreak
+    "sp_a2_bts2",            // 30: Unlock: Escape
+    "sp_a2_bts3",            // 31: Unlock: Turret Factory
+    "sp_a2_bts4",            // 32: Unlock: Turret Sabotage
+    "sp_a2_bts5",            // 33: Unlock: Neurotoxin Sabotage
+    "sp_a2_core",            // 34: Unlock: Core
+    "sp_a3_01",              // 35: Unlock: Underground
+    "sp_a3_03",              // 36: Unlock: Cave Johnson
+    "sp_a3_jump_intro",      // 37: Unlock: Repulsion Intro
+    "sp_a3_bomb_flings",     // 38: Unlock: Bomb Flings
+    "sp_a3_crazy_box",       // 39: Unlock: Crazy Box
+    "sp_a3_transition01",    // 40: Unlock: PotatOS
+    "sp_a3_speed_ramp",      // 41: Unlock: Propulsion Intro
+    "sp_a3_speed_flings",    // 42: Unlock: Propulsion Flings
+    "sp_a3_portal_intro",    // 43: Unlock: Conversion Intro
+    "sp_a3_end",             // 44: Unlock: Three Gels
+    "sp_a4_intro",           // 45: Unlock: Test
+    "sp_a4_tb_intro",        // 46: Unlock: Funnel Intro
+    "sp_a4_tb_trust_drop",   // 47: Unlock: Ceiling Button
+    "sp_a4_tb_wall_button",  // 48: Unlock: Wall Button
+    "sp_a4_tb_polarity",     // 49: Unlock: Polarity
+    "sp_a4_tb_catch",        // 50: Unlock: Funnel Catch
+    "sp_a4_stop_the_box",    // 51: Unlock: Stop The Box
+    "sp_a4_laser_catapult",  // 52: Unlock: Laser Catapult
+    "sp_a4_laser_platform",  // 53: Unlock: Laser Platform
+    "sp_a4_speed_tb_catch",  // 54: Unlock: Propulsion Catch
+    "sp_a4_jump_polarity",   // 55: Unlock: Repulsion Polarity
+    "sp_a4_finale1",         // 56: Unlock: Finale 1
+    "sp_a4_finale2",         // 57: Unlock: Finale 2
+    "sp_a4_finale3",         // 58: Unlock: Finale 3
+    "sp_a4_finale4"          // 59: Unlock: Finale 4
+];
+
+// ============================================
+// ARCHIPELAGO HELPER FUNCTIONS
+// ============================================
+
+function SpawnBlueGel() {
+    // Spawns a Repulsion Gel bomb at the player's crosshair
+    // "paint_bomb_jump" is the internal name for Blue Gel blobs
+    SendToConsole("ent_create_paint_bomb_jump");
+    
+    // Optional: Play a sound so you know it worked
+    local player = GetPlayer();
+    if (player) {
+        player.EmitSound("Paint.Bounce");
+    }
+}
+
+
+function InitializeArchipelago() {
+    print("[AP] InitializeArchipelago called!\n");
+    modlog("InitializeArchipelago called!");
+    
+    // --- FIX START ---
+    // We must NOT return early here. 
+    // Even if initialized previously, the VScript context is new after a reload.
+    // ARCHIPELAGO_RECEIVED_ITEMS is empty and needs to be repopulated via a fresh connection.
+    
+    /* // OLD CODE - CAUSED THE BUG
+    if (smsm.GetModeParam(200) > 0) {
+        print("[AP] Already initialized, skipping...\n");
+        modlog("Already initialized, skipping...");
+        ARCHIPELAGO_CONNECTED = true;
+        return;
+    }
+    */
+    // --- FIX END ---
+    
+    // --- ARCHIPELAGO CONFIG ---
+    // TODO: Eventually read this from a cfg file or cvar
+    local ip = "localhost:38281"; 
+    local slot = "iiNovaCore";       
+    local pass = "";              
+    // --------------------------
+
+    print("[AP] Connecting to " + ip + " as " + slot + "...\n");
+    modlog("Connecting to Archipelago at " + ip + "...");
+
+    // This needs to run every map load to bind the C++ backend to this specific VScript instance
+    smsm.AP_Connect(ip, slot, pass);
+    
+    ARCHIPELAGO_CONNECTED = true;
+    ARCHIPELAGO_INITIALIZED = true;
+    smsm.SetModeParam(200, 1);  // Mark as initialized
+    
+    // Optional: Add a small delay check or force an item refresh if your C++ API supports it
+    // But usually, AP_Connect triggers a fresh sync of items.
+    
+    foreach(i, m in AP_UNLOCK_ORDER)
+        printl(i + " -> " + m);
+}
+
+
+
+function ProcessArchipelagoItems() {
+    if (!ARCHIPELAGO_CONNECTED) return;
+
+    local newItemsStr = smsm.AP_GetNewItems(); 
+    
+    if (newItemsStr != "") {
+        local items = split(newItemsStr, ",");
+        foreach (idStr in items) {
+            local itemID = idStr.tointeger();
+            
+            // --- SPECIAL ITEMS (Blue Gel, etc.) ---
+            if (itemID == 201999) {
+                print("[AP] Received Blue Gel (ID: " + itemID + ") - Spawning!\n");
+                modlog("Received Blue Gel - Spawning!");
+                SpawnBlueGel();
+                continue; // Skip the rest of the loop for this item
+            }
+            // --------------------------------------
+
+            // Standard Room Unlocks
+            local unlockIndex = itemID - AP_ITEM_OFFSET;
+
+            if (unlockIndex >= 0 && unlockIndex < AP_UNLOCK_ORDER.len()) {
+                local map_name = AP_UNLOCK_ORDER[unlockIndex];
+
+                local pretty_name = "Unknown Unlock";
+                if (map_name in ROOM_UNLOCK_MAP) {
+                    pretty_name = ROOM_UNLOCK_MAP[map_name];
+                    ARCHIPELAGO_RECEIVED_ITEMS[pretty_name] <- true;
+                }
+
+                print("[AP] Received Item: " + itemID + " -> Unlocking: " + map_name + "\n");
+                modlog("Unlocked Room: " + map_name + " (" + pretty_name + ")");
+                
+                local player = GetPlayer();
+                if (player) {
+                    player.EmitSound("celeste.dash"); 
+                    EntFire("@chapter_subtitle_text", "settext", "UNLOCKED: " + pretty_name, 0.0);
+                    EntFire("@chapter_subtitle_text", "display", "", 0.1);
+                }
+            } else {
+                 // Handle other junk items so they don't crash the script
+                 print("[AP] Received Filler Item (ID: " + itemID + ")\n");
+            }
+        }
+    }
+}
+
+function IsRoomUnlocked(map_name) {
+    // Moon room is always accessible
+    if (map_name == "celeste_moonroom") return true;
+    
+    // If archipelago is not enabled, treat everything as unlocked
+    if (!ARCHIPELAGO_CONNECTED) return true;
+    
+    // Check if room has an unlock requirement
+    if (!(map_name in ROOM_UNLOCK_MAP)) {
+        return true;
+    }
+    
+    local unlock_item = ROOM_UNLOCK_MAP[map_name];
+    return (unlock_item in ARCHIPELAGO_RECEIVED_ITEMS) && ARCHIPELAGO_RECEIVED_ITEMS[unlock_item];
+}
+
+function AreAllRoomsUnlocked() {
+    if (!ARCHIPELAGO_CONNECTED) return true;
+    
+    foreach (map_name, unlock_item in ROOM_UNLOCK_MAP) {
+        if (!(unlock_item in ARCHIPELAGO_RECEIVED_ITEMS) || !ARCHIPELAGO_RECEIVED_ITEMS[unlock_item]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Room unlock mapping: map name -> item name required to unlock
+ROOM_UNLOCK_MAP <- {};
+ROOM_UNLOCK_MAP["sp_a1_intro1"] <- "Unlock: Container Ride";
+ROOM_UNLOCK_MAP["sp_a1_intro2"] <- "Unlock: Portal Carousel";
+ROOM_UNLOCK_MAP["sp_a1_intro3"] <- "Unlock: Portal Gun";
+ROOM_UNLOCK_MAP["sp_a1_intro4"] <- "Unlock: Smooth Jazz";
+ROOM_UNLOCK_MAP["sp_a1_intro5"] <- "Unlock: Cube Momentum";
+ROOM_UNLOCK_MAP["sp_a1_intro6"] <- "Unlock: Future Starter";
+ROOM_UNLOCK_MAP["sp_a1_intro7"] <- "Unlock: Secret Panel";
+ROOM_UNLOCK_MAP["sp_a1_wakeup"] <- "Unlock: Wakeup";
+ROOM_UNLOCK_MAP["sp_a2_intro"] <- "Unlock: Incinerator";
+ROOM_UNLOCK_MAP["sp_a2_laser_intro"] <- "Unlock: Laser Intro";
+ROOM_UNLOCK_MAP["sp_a2_laser_stairs"] <- "Unlock: Laser Stairs";
+ROOM_UNLOCK_MAP["sp_a2_dual_lasers"] <- "Unlock: Dual Lasers";
+ROOM_UNLOCK_MAP["sp_a2_laser_over_goo"] <- "Unlock: Laser Over Goo";
+ROOM_UNLOCK_MAP["sp_a2_catapult_intro"] <- "Unlock: Catapult Intro";
+ROOM_UNLOCK_MAP["sp_a2_trust_fling"] <- "Unlock: Trust Fling";
+ROOM_UNLOCK_MAP["sp_a2_pit_flings"] <- "Unlock: Pit Flings";
+ROOM_UNLOCK_MAP["sp_a2_fizzler_intro"] <- "Unlock: Fizzler Intro";
+ROOM_UNLOCK_MAP["sp_a2_sphere_peek"] <- "Unlock: Ceiling Catapult";
+ROOM_UNLOCK_MAP["sp_a2_ricochet"] <- "Unlock: Ricochet";
+ROOM_UNLOCK_MAP["sp_a2_bridge_intro"] <- "Unlock: Bridge Intro";
+ROOM_UNLOCK_MAP["sp_a2_bridge_the_gap"] <- "Unlock: Bridge The Gap";
+ROOM_UNLOCK_MAP["sp_a2_turret_intro"] <- "Unlock: Turret Intro";
+ROOM_UNLOCK_MAP["sp_a2_laser_relays"] <- "Unlock: Laser Relays";
+ROOM_UNLOCK_MAP["sp_a2_turret_blocker"] <- "Unlock: Turret Blocker";
+ROOM_UNLOCK_MAP["sp_a2_laser_vs_turret"] <- "Unlock: Laser Vs Turret";
+ROOM_UNLOCK_MAP["sp_a2_pull_the_rug"] <- "Unlock: Pull The Rug";
+ROOM_UNLOCK_MAP["sp_a2_column_blocker"] <- "Unlock: Column Blocker";
+ROOM_UNLOCK_MAP["sp_a2_laser_chaining"] <- "Unlock: Laser Chaining";
+ROOM_UNLOCK_MAP["sp_a2_triple_laser"] <- "Unlock: Triple Laser";
+ROOM_UNLOCK_MAP["sp_a2_bts1"] <- "Unlock: Jailbreak";
+ROOM_UNLOCK_MAP["sp_a2_bts2"] <- "Unlock: Escape";
+ROOM_UNLOCK_MAP["sp_a2_bts3"] <- "Unlock: Turret Factory";
+ROOM_UNLOCK_MAP["sp_a2_bts4"] <- "Unlock: Turret Sabotage";
+ROOM_UNLOCK_MAP["sp_a2_bts5"] <- "Unlock: Neurotoxin Sabotage";
+ROOM_UNLOCK_MAP["sp_a2_core"] <- "Unlock: Core";
+ROOM_UNLOCK_MAP["sp_a3_01"] <- "Unlock: Underground";
+ROOM_UNLOCK_MAP["sp_a3_03"] <- "Unlock: Cave Johnson";
+ROOM_UNLOCK_MAP["sp_a3_jump_intro"] <- "Unlock: Repulsion Intro";
+ROOM_UNLOCK_MAP["sp_a3_bomb_flings"] <- "Unlock: Bomb Flings";
+ROOM_UNLOCK_MAP["sp_a3_crazy_box"] <- "Unlock: Crazy Box";
+ROOM_UNLOCK_MAP["sp_a3_transition01"] <- "Unlock: PotatOS";
+ROOM_UNLOCK_MAP["sp_a3_speed_ramp"] <- "Unlock: Propulsion Intro";
+ROOM_UNLOCK_MAP["sp_a3_speed_flings"] <- "Unlock: Propulsion Flings";
+ROOM_UNLOCK_MAP["sp_a3_portal_intro"] <- "Unlock: Conversion Intro";
+ROOM_UNLOCK_MAP["sp_a3_end"] <- "Unlock: Three Gels";
+ROOM_UNLOCK_MAP["sp_a4_intro"] <- "Unlock: Test";
+ROOM_UNLOCK_MAP["sp_a4_tb_intro"] <- "Unlock: Funnel Intro";
+ROOM_UNLOCK_MAP["sp_a4_tb_trust_drop"] <- "Unlock: Ceiling Button";
+ROOM_UNLOCK_MAP["sp_a4_tb_wall_button"] <- "Unlock: Wall Button";
+ROOM_UNLOCK_MAP["sp_a4_tb_polarity"] <- "Unlock: Polarity";
+ROOM_UNLOCK_MAP["sp_a4_tb_catch"] <- "Unlock: Funnel Catch";
+ROOM_UNLOCK_MAP["sp_a4_stop_the_box"] <- "Unlock: Stop The Box";
+ROOM_UNLOCK_MAP["sp_a4_laser_catapult"] <- "Unlock: Laser Catapult";
+ROOM_UNLOCK_MAP["sp_a4_laser_platform"] <- "Unlock: Laser Platform";
+ROOM_UNLOCK_MAP["sp_a4_speed_tb_catch"] <- "Unlock: Propulsion Catch";
+ROOM_UNLOCK_MAP["sp_a4_jump_polarity"] <- "Unlock: Repulsion Polarity";
+ROOM_UNLOCK_MAP["sp_a4_finale1"] <- "Unlock: Finale 1";
+ROOM_UNLOCK_MAP["sp_a4_finale2"] <- "Unlock: Finale 2";
+ROOM_UNLOCK_MAP["sp_a4_finale3"] <- "Unlock: Finale 3";
+ROOM_UNLOCK_MAP["sp_a4_finale4"] <- "Unlock: Finale 4";
+
+
 ModeParams <- {
     InitialValue = 0,
     MaxDashes = 1,
@@ -131,8 +407,6 @@ function UpdateBirb(){
 
 //berries
 BERRIES <- {};
-//okay, look, i know you think "yaya me me smart" but
-//at least try to not spoil berries location for yourself
 BERRIES["sp_a1_intro1"] <- [
     {name="First Steps",pos=Vector(-1075, 4348, 2739)},
 ];
@@ -373,14 +647,30 @@ BERRIES["sp_a4_finale3"] <- [
     {name="On A Pipe",pos=Vector(-480, 1890, 480)},
     {name="Golden Berry Finder",pos=Vector(60, 5053, 589), golden=1},
 ];
+BERRIES["sp_a4_finale4"] <- [
+    {name="GGs",pos=Vector(-20, 248, -67)}
 
+];
+
+// Moon room berries - cosmetic only, not part of progression
 BERRIES["celeste_moonroom"] <- [
     {name="Grand Red Berry",pos=Vector(-272, 260, -816)},
     {name="Grand Quantum Berry",pos=Vector(-160, 260, -816), quantum=1},
     {name="Grand Golden Berry",pos=Vector(-48, 260, -816), golden=1},
 ];
 
-
+// MANUAL SORT ORDER FOR DETERMINISTIC IDs
+BERRY_MAP_ORDER <- [
+    "sp_a1_intro1", "sp_a1_intro2", "sp_a1_intro3", "sp_a1_intro4", "sp_a1_intro5", "sp_a1_intro6", "sp_a1_intro7",
+    "sp_a1_wakeup", "sp_a2_intro", "sp_a2_laser_intro", "sp_a2_laser_stairs", "sp_a2_dual_lasers", "sp_a2_laser_over_goo",
+    "sp_a2_catapult_intro", "sp_a2_trust_fling", "sp_a2_pit_flings", "sp_a2_fizzler_intro", "sp_a2_sphere_peek", "sp_a2_ricochet",
+    "sp_a2_bridge_intro", "sp_a2_bridge_the_gap", "sp_a2_turret_intro", "sp_a2_laser_relays", "sp_a2_turret_blocker", "sp_a2_laser_vs_turret",
+    "sp_a2_pull_the_rug", "sp_a2_column_blocker", "sp_a2_laser_chaining", "sp_a2_triple_laser", "sp_a2_bts1", "sp_a2_bts2", "sp_a2_bts3",
+    "sp_a2_bts4", "sp_a2_bts5", "sp_a2_core", "sp_a3_01", "sp_a3_03", "sp_a3_jump_intro", "sp_a3_bomb_flings", "sp_a3_crazy_box",
+    "sp_a3_transition01", "sp_a3_speed_ramp", "sp_a3_speed_flings", "sp_a3_portal_intro", "sp_a3_end", "sp_a4_intro", "sp_a4_tb_intro",
+    "sp_a4_tb_trust_drop", "sp_a4_tb_wall_button", "sp_a4_tb_polarity", "sp_a4_tb_catch", "sp_a4_stop_the_box", "sp_a4_laser_catapult",
+    "sp_a4_laser_platform", "sp_a4_speed_tb_catch", "sp_a4_jump_polarity", "sp_a4_finale1", "sp_a4_finale2", "sp_a4_finale3", "sp_a4_finale4"
+];
 
 BERRIES_counter <- 0;
 BERRIES_max <- 0;
@@ -402,32 +692,45 @@ function PrintBerriesCount(){
 }
 
 function CreateBerries(){
-    //assigning ID to every berry, and check if its collected already
-    foreach( mapname, berryset in BERRIES){
-        foreach(index, berry in berryset){
-            berry.id <- BERRIES_max;
-            berry.collected <- false;
-            if(!("quantum" in berry))berry.quantum <- 0;
-            if(!("golden" in berry))berry.golden <- 0;
-            if(smsm.GetModeParam(ModeParams.BerriesOffset+BERRIES_max)>0){
-                berry.collected = true;
-            }
-            BERRIES_max++;
-            
-            if(mapname=="celeste_moonroom")continue;
-
-            //counting berries
-            if(berry.golden){
-                BERRIES_count_golden++;
-                if(berry.collected)BERRIES_count_golden_collected++;
-            }else if(berry.quantum){
-                BERRIES_count_quantum++;
-                if(berry.collected)BERRIES_count_quantum_collected++;
-            }else{
-                BERRIES_count_red++;
-                if(berry.collected)BERRIES_count_red_collected++;
+    // IMPORTANT: Iterate using sorted array to guarantee Stable IDs for Archipelago
+    foreach(mapname in BERRY_MAP_ORDER) {
+        if(mapname in BERRIES) {
+            foreach(index, berry in BERRIES[mapname]) {
+                berry.id <- BERRIES_max;
+                berry.collected <- false;
+                if(!("quantum" in berry))berry.quantum <- 0;
+                if(!("golden" in berry))berry.golden <- 0;
+                
+                if(smsm.GetModeParam(ModeParams.BerriesOffset+BERRIES_max)>0){
+                    berry.collected = true;
+                }
+                BERRIES_max++;
+                
+                //counting berries
+                if(berry.golden){
+                    BERRIES_count_golden++;
+                    if(berry.collected)BERRIES_count_golden_collected++;
+                }else if(berry.quantum){
+                    BERRIES_count_quantum++;
+                    if(berry.collected)BERRIES_count_quantum_collected++;
+                }else{
+                    BERRIES_count_red++;
+                    if(berry.collected)BERRIES_count_red_collected++;
+                }
             }
         }
+    }
+    
+    // Process moon room separately (cosmetic, no ID needed for AP usually)
+    if ("celeste_moonroom" in BERRIES) {
+         foreach(index, berry in BERRIES["celeste_moonroom"]) {
+             // We don't assign main IDs here to avoid shifting checks, or we do if you want them to be checks.
+             // For now, leaving them out of global ID count to keep it simple.
+             berry.id <- -1; 
+             berry.collected <- false;
+             if(!("quantum" in berry))berry.quantum <- 0;
+             if(!("golden" in berry))berry.golden <- 0;
+         }
     }
 
     //spawning uncollected berries
@@ -559,16 +862,32 @@ function UpdateBerries(){
     local pmin = GetPlayer().GetOrigin()+GetPlayer().GetBoundingMins();
     local pmax = GetPlayer().GetOrigin()+GetPlayer().GetBoundingMaxs();
     local quantumCount = 0;
-    if(GetMapName() in BERRIES)foreach( index, berry in BERRIES[GetMapName()] ){
+    
+    if(GetMapName() in BERRIES) foreach( index, berry in BERRIES[GetMapName()] ){
         if(!berry.collected && berry.entity){
-            if(berry.quantum)quantumCount++;
+            if(berry.quantum) quantumCount++;
+            
             local bsize = 16;
             local bmin = berry.entity.GetOrigin() - Vector(bsize,bsize,bsize);
             local bmax = berry.entity.GetOrigin() + Vector(bsize,bsize,bsize);
-            //if player bbox overlaps berry bbox
+            
+            // Check collision
             if(pmax.x > bmin.x && pmin.x < bmax.x && pmax.y > bmin.y && pmin.y < bmax.y && pmax.z > bmin.z && pmin.z < bmax.z){
                 berry.collected = true;
-                //berry.entity.EmitSound("celeste.berryget");
+                
+                // --- ARCHIPELAGO SEND CHECK ---
+                if (ARCHIPELAGO_CONNECTED && berry.id != -1) {
+                    local locID = AP_LOCATION_OFFSET + berry.id;
+                    
+                    // CONSOLE LOG
+                    print("[AP] Sending Check for Berry " + berry.id + " (LocID: " + locID + ")\n");
+                    modlog("Sending Check for Berry ID " + berry.id + " (AP: " + locID + ")");
+                    
+                    // Call C++
+                    smsm.AP_SendLocation(locID);
+                }
+                // ------------------------------
+
                 EntFireByHandle(berry.entity, "Kill", "", 2, null, null);
                 EntFireByHandle(berry.entity, "Skin", "1", 0.01, null, null);
                 EntFireByHandle(berry.entity, "SetAnimation", "collect", 0, null, null);
@@ -577,7 +896,7 @@ function UpdateBerries(){
             }
         }
     }
-    if(quantumCount>0)CheckPortals(false);
+    if(quantumCount>0) CheckPortals(false);
 }
 
 //main code
@@ -585,6 +904,7 @@ function UpdateBerries(){
 function CelestePostSpawn(){
     //FOG_CONTROL_VALUES = {r=0.8, g=0.4, b=1.3};
     FIRST_MAP_WITH_POTATO_GUN = "sp_a3_speed_ramp"
+    InitializeArchipelago();
 }
 
 FIRST_MAP_WITH_1_DASH <- "sp_a1_intro4"
@@ -795,6 +1115,10 @@ hintState <- 0
 
 function CelesteUpdate(){
     
+    // --- POLLING ARCHIPELAGO ---
+    ProcessArchipelagoItems();
+    // ---------------------------
+
     UpdateIndicatorDiode();
     UpdateStaminaCover();
 
@@ -909,15 +1233,6 @@ function UpgradeDashes(dashes){
 function ForceBerryDisplay(force){
     smsm.SetModeParam(ModeParams.DisplayBerriesForce, force)
 }
-
-
-
-
-
-
-
-
-
 
 
 ///////////////////////////////////
@@ -1047,7 +1362,6 @@ if(GetMapName()=="celeste_moonroom"){
         {filename="sp_a4_finale2",name="Finale 2"},
         {filename="sp_a4_finale3",name="Finale 3"},
         {filename="sp_a4_finale4",name="Finale 4"},
-        {filename="celeste_moonroom",name="Moon Room"},
     ];
 
 
@@ -1089,16 +1403,28 @@ if(GetMapName()=="celeste_moonroom"){
 
     function DisplayPrevBerryList(){
         if(BerryScanningInProgress)return;
-        CURRENT_MAP--;
-        if(CURRENT_MAP<0)CURRENT_MAP=0;
-        DisplayBerryList(CURRENT_MAP);
+        local prevMap = CURRENT_MAP - 1;
+        while(prevMap >= 0) {
+            if(IsRoomUnlocked(MAPS[prevMap].filename)) {
+                CURRENT_MAP = prevMap;
+                DisplayBerryList(CURRENT_MAP);
+                return;
+            }
+            prevMap--;
+        }
     }
 
     function DisplayNextBerryList(){
         if(BerryScanningInProgress)return;
-        CURRENT_MAP++;
-        if(CURRENT_MAP>=MAPS.len())CURRENT_MAP=MAPS.len()-1;
-        DisplayBerryList(CURRENT_MAP);
+        local nextMap = CURRENT_MAP + 1;
+        while(nextMap < MAPS.len()) {
+            if(IsRoomUnlocked(MAPS[nextMap].filename)) {
+                CURRENT_MAP = nextMap;
+                DisplayBerryList(CURRENT_MAP);
+                return;
+            }
+            nextMap++;
+        }
     }
 
     function DisplayTestScreen(){
@@ -1214,6 +1540,7 @@ if(GetMapName()=="celeste_moonroom"){
     //DisplayUnlockProgress(7);
     //DisplayTestScreen();
     DisplayBerryOSLogo();
+    
     //DisplayWow();
 
 
@@ -1261,38 +1588,74 @@ if(GetMapName()=="celeste_moonroom"){
     }
 
     function RequestLevelWarp(){
-        if(BerryScanningInProgress)return;
-        local unfinishedMaps = {};
-        local mapCount = 0;
-        local currentMap = -1;
+        if(BerryScanningInProgress) return;
+
+        local currentMap = -1; 
+        
+        print("--- WARP REQUEST ---\n");
 
         if (IS_WARPING || CURRENT_MAP < 0 || MAPS[CURRENT_MAP].filename == "celeste_moonroom") {
             local nextMap = -1;
-            local firstMap = -1;
+            local firstMap = -1;      // First unfinished map
+            local firstUnlocked = -1; // First unlocked map (The Fallback)
+            
             foreach(i, map in MAPS) {
-                if (map.filename != "celeste_moonroom" && map.filename in BERRIES) {
+                if (map.filename == "celeste_moonroom") continue;
+
+                // 1. Check Unlock
+                local unlocked = IsRoomUnlocked(map.filename);
+                
+                if (unlocked) {
+                    // Save this as a fallback option immediately
+                    if (firstUnlocked == -1) firstUnlocked = i;
+
+                    // 2. Check Berries
                     local unfinished = false;
-                    foreach (index, berry in BERRIES[map.filename]) {
-                        if (!berry.collected) {
-                            unfinished = true;
-                            break;
+                    if (map.filename in BERRIES) {
+                        foreach (index, berry in BERRIES[map.filename]) {
+                            if (!berry.collected) {
+                                unfinished = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    // VICTORY GUARD
+                    if (map.filename == "sp_a4_finale4") {
+                        if (BERRIES_count_golden_collected < GOLDEN_BERRIES_REQUIRED) {
+                            continue; 
                         }
                     }
 
                     if (firstMap == -1 && unfinished) firstMap = i;
-                    if (i > CURRENT_MAP && unfinished) nextMap = i;
-
-										if (nextMap != -1) break;
+                    if (i > CURRENT_MAP && unfinished) {
+                        nextMap = i;
+                        break; 
+                    }
                 }
             }
-            if (nextMap == -1 && firstMap != -1) nextMap = firstMap;
-            CURRENT_MAP = nextMap;
+            
+            // --- SELECTION LOGIC ---
+            if (nextMap == -1) nextMap = firstMap;
+            
+            // THE FIX: If we still have nothing, default to the first unlocked map
+            if (nextMap == -1) {
+                print(" > All maps finished. Fallback to first unlocked map.\n");
+                nextMap = firstUnlocked; 
+            }
+            
+            if (nextMap != -1) {
+                CURRENT_MAP = nextMap;
+                print(">>> WARPING TO: " + MAPS[CURRENT_MAP].filename + " <<<\n");
+            } else {
+                print(">>> CRITICAL FAILURE: No map selected (Are you unlocked?). <<<\n");
+                EntFire("computer_error", "PlaySound");
+                return; 
+            }
         }
 
-				IS_WARPING = true;
-
+        IS_WARPING = true;
         EntFire("warper_prepare", "Trigger");
-
         DisplayWarpLocation();
     }
 

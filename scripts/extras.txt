@@ -15,10 +15,10 @@
 	}
 	"celeste"
 	{
-		"title"		"Celeste Mode"
+		"title"		"Archipelago Mode"
 		"subtitle"	"Dash your way through Aperture!"
 		"pic"		"srmod/menu_modes/celeste"
-		"command"	"sm_mode 2;map sp_a1_intro1"
+		"command"	"sm_mode 2;map celeste_moonroom"
 	}
 	"space"{}
 	"p2r3_cat"

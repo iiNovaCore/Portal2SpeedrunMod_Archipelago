@@ -88,6 +88,9 @@
     <ClCompile Include="Hud\Hud.cpp">
       <Filter>Source\Hud</Filter>
     </ClCompile>
+    <ClCompile Include="ArchipelagoManager.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Offsets.hpp">
@@ -167,6 +170,9 @@
     </ClInclude>
     <ClInclude Include="Hud\Hud.hpp">
       <Filter>Source\Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="ArchipelagoManager.h">
+      <Filter>Source</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
