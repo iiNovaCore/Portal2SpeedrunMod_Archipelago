@@ -13,6 +13,8 @@
 
 </div>
 
+This is a fork of P2SM for Archipelago. I tried to fix the bug im facing with AI and could not. It is open to anyone who wants to fix. Currently DOES NOT WORK.
+
 A mod for speedrunning Portal 2 with minimal downtime and support for alternate gamemodes.
 
 For more information and installation instructions, please visit [the website].
